@@ -1,0 +1,131 @@
+version: "2"
+
+services:
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "8080:8080"
+      - "443:443"
+      - "8443:8443"
+    volumes:
+      - ${WWW}:/var/www/html/:rw,cached
+      - ${WEBAPPS}:/usr/local/tomcat/webapps/:rw,cached
+      - ./conf/nginx/conf.d:/etc/nginx/conf.d/:ro,cached
+      - ./conf/nginx/nginx.conf:/etc/nginx/nginx.conf:ro,cached
+      - ./log/nginx/:/var/log/nginx/:rw,cached
+    links:
+      - php72:fpm72
+      - php56:fpm56
+      - tomcat85:tc85
+    environment:
+      - TZ=Asia/Shanghai
+    networks:
+      docker_net:
+        ipv4_address: ${NGINX_IP}
+    #restart: always
+        
+  tomcat85:
+    image: tomcat:8.5
+    expose:
+      - "8080"
+    volumes:
+      - ${WEBAPPS}:/usr/local/tomcat/webapps:rw,cached
+      - ./conf/tomcat/85:/usr/local/tomcat/conf:ro,cached
+      - ./log/tomcat/:/usr/local/tomcat/logs:rw,cached
+    environment:
+      - TZ=Asia/Shanghai
+    links:
+      - mysql:mysql
+      - redis:redis
+      - mongo:mongo
+    networks:
+      docker_net:
+        ipv4_address: ${TOMCAT_IP}
+    #restart: always
+    
+  php72:
+    build: ./php/php72/
+    expose:
+      - "9000"
+    volumes:
+      - ${WWW}:/var/www/html/:rw,cached
+      - ./conf/php/php72.ini:/usr/local/etc/php/php.ini:ro,cached
+      - ./conf/php/php-fpm.d/www72.conf:/usr/local/etc/php-fpm.d/www.conf:rw,cached
+      - ./log/php-fpm/:/var/log/php-fpm/:rw,cached
+    links:
+      - mysql:mysql
+      - redis:redis
+      - mongo:mongo
+    environment:
+      - TZ=Asia/Shanghai
+    networks:
+      docker_net:
+        ipv4_address: ${PHP72_IP}
+    #restart: always
+    
+  php56:
+    build: ./php/php56/
+    expose:
+      - "9000"
+    volumes:
+      - ${WWW}:/var/www/html/:rw,cached
+      - ./conf/php/php56.ini:/usr/local/etc/php/php.ini:ro,cached
+      - ./conf/php/php-fpm.d/www56.conf:/usr/local/etc/php-fpm.d/www.conf:rw,cached
+      - ./log/php-fpm/:/var/log/php-fpm/:rw,cached
+    links:
+      - mysql:mysql
+      - redis:redis
+      - mongo:mongo
+    environment:
+      - TZ=Asia/Shanghai
+    networks:
+      docker_net:
+        ipv4_address: ${PHP56_IP}
+    #restart: always
+    
+  mysql:
+    image: mysql:5.7
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./conf/mysql/my.cnf:/etc/mysql/my.cnf:ro,cached
+      - ./mysql/:/var/lib/mysql/:rw,cached
+      - ./log/mysql/:/var/log/mysql/:rw,cached
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    networks:
+      docker_net:
+        ipv4_address: ${MYSQL_IP}
+    #restart: always
+    
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis/:/data:rw,cached
+    networks:
+      docker_net:
+        ipv4_address: ${REDIS_IP}
+    #restart: always
+    
+  mongo:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./mongo/:/data/db:rw,cached
+    networks:
+      docker_net:
+        ipv4_address: ${MONGO_IP}
+    #restart: always
+                                 
+networks:
+  docker_net:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: "${DOCKER_SUBNET}"
